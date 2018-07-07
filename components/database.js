@@ -2,7 +2,9 @@ var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var ObjectId = mongoose.Schema.Types.ObjectId;
 var debug = require('debug')('botkit:db');
-module.exports = function(config) {
+const uuidv4 = require('uuid/v4');
+
+module.exports = function (config) {
 
 
   mongoose.connect(process.env.MONGO_URI, {
@@ -13,8 +15,9 @@ module.exports = function(config) {
 
   var db = mongoose.connection;
   db.on('error', console.error.bind(console, 'connection error:'));
-  db.once('open', function() {
+  db.once('open', function () {
     // we're connected!
+    console.log('open db success')
     debug('CONNECTED TO DB!');
   });
 
@@ -24,12 +27,20 @@ module.exports = function(config) {
       type: String,
       index: true,
     },
+    sectionId: String,
     name: String,
+    nickname: String,
+    username: String,
+    email: String,
+    token: String,
     attributes: {
       type: Object,
       default: {},
     },
-  })
+  }, {
+      timestamps: true,
+      versionKey: false,
+    })
 
   var users = mongoose.model('user', userSchema);
 
@@ -50,31 +61,34 @@ module.exports = function(config) {
 
   return {
     teams: {
-      get: function(id, cb) {
+      get: function (id, cb) {
       },
-      save: function(data, cb) {
+      save: function (data, cb) {
       },
-      all: function(cb) {
+      all: function (cb) {
       },
-      count: function(cb) {
+      count: function (cb) {
       },
-      find: function(data, cb) {
+      find: function (data, cb) {
       }
     },
     users: {
-      get: function(id, cb) {
+      get: function (id, cb) {
         return users.findOne({
           id: id
         }, cb);
 
       },
-      save: function(data, cb) {
+      save: function (data, cb) {
+        console.log('data', data)
         users.findOne({
-          id: data.id
-        }, function(err, user) {
+          email: data.email
+        }, function (err, user) {
           if (err) {
             if (cb) return cb(err);
           }
+
+          console.log('find user resp', user)
           if (!user) {
             user = new users(data);
           }
@@ -83,45 +97,49 @@ module.exports = function(config) {
           for (var key in data) {
             user[key] = data[key];
           }
-          user.save(function(err) {
+          if (!user.id) {
+            user.id = uuidv4();
+          }
+          console.log('user', user)
+          user.save(function (err) {
             if (cb) cb(err, user);
           });
         });
       },
-      all: function(cb) {
+      all: function (cb) {
         return users.find({}, cb);
       },
-      find: function(data, cb) {
+      find: function (data, cb) {
         return users.find(data, cb);
       },
     },
     history: {
-      addToHistory: function(message, user) {
-        return new Promise(function(resolve, reject) {
-          var hist = new history({userId: user, message: message});
-          hist.save(function(err) {
+      addToHistory: function (message, user) {
+        return new Promise(function (resolve, reject) {
+          var hist = new history({ userId: user, message: message });
+          hist.save(function (err) {
             if (err) { return reject(err) }
             resolve(hist);
           });
         });
       },
-      getHistoryForUser: function(user, limit) {
-        return new Promise(function(resolve, reject) {
-          history.find({userId: user}).sort({date: -1}).limit(limit).exec(function(err, history) {
-            if (err) {  return reject(err) }
+      getHistoryForUser: function (user, limit) {
+        return new Promise(function (resolve, reject) {
+          history.find({ userId: user }).sort({ date: -1 }).limit(limit).exec(function (err, history) {
+            if (err) { return reject(err) }
             resolve(history.reverse());
           });
         });
       }
     },
     channels: {
-      get: function(id, cb) {
+      get: function (id, cb) {
       },
-      save: function(data, cb) {
+      save: function (data, cb) {
       },
-      all: function(cb) {
+      all: function (cb) {
       },
-      find: function(data, cb) {
+      find: function (data, cb) {
       }
     }
   }
